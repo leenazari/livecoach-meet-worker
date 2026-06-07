@@ -1,6 +1,6 @@
 {
   "name": "livecoach-meet-worker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,7 +10,6 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.4",
     "express": "^4.19.2",
     "svix": "^1.24.0",
     "ws": "^8.18.0"
