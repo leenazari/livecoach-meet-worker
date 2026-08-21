@@ -3,11 +3,13 @@
   "version": "1.0.1",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.19.0",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "express": "^4.19.2",
