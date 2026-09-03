@@ -36,6 +36,22 @@ export function roomKey(ownerId, sessionId) {
   return `${ownerId}:${sessionId}`;
 }
 
+export function subscriberRoomKeys(rows, captureScope) {
+  if (!Array.isArray(rows) || !validUuid(captureScope?.workspaceId)) return [];
+  const keys = new Set();
+  for (const row of rows) {
+    if (
+      row?.status !== "active" ||
+      row?.workspace_id !== captureScope.workspaceId
+    ) {
+      continue;
+    }
+    const key = roomKey(row?.owner_id, row?.session_id);
+    if (key) keys.add(key);
+  }
+  return Array.from(keys);
+}
+
 export function utteranceMatchesScope(utterance, scope) {
   return !!(
     utterance &&

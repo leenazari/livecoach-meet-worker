@@ -5,6 +5,7 @@ import {
   extractUtterance,
   hashStreamToken,
   roomKey,
+  subscriberRoomKeys,
   utteranceMatchesScope,
   validSessionId,
   validWebhookToken,
@@ -26,6 +27,46 @@ test("rooms are namespaced by the verified account", () => {
   const userB = "22222222-2222-4222-8222-222222222222";
   assert.notEqual(roomKey(userA, "lc-same-room"), roomKey(userB, "lc-same-room"));
   assert.equal(roomKey(userA, "not-a-livecoach-room"), null);
+});
+
+test("one capture fans out only to active subscribers in its workspace", () => {
+  const workspaceId = "33333333-3333-4333-8333-333333333333";
+  const userA = "11111111-1111-4111-8111-111111111111";
+  const userB = "22222222-2222-4222-8222-222222222222";
+  const outsider = "44444444-4444-4444-8444-444444444444";
+  const keys = subscriberRoomKeys(
+    [
+      {
+        owner_id: userA,
+        workspace_id: workspaceId,
+        session_id: "lc-lee-call",
+        status: "active",
+      },
+      {
+        owner_id: userB,
+        workspace_id: workspaceId,
+        session_id: "lc-kamm-call",
+        status: "active",
+      },
+      {
+        owner_id: outsider,
+        workspace_id: "55555555-5555-4555-8555-555555555555",
+        session_id: "lc-private-call",
+        status: "active",
+      },
+      {
+        owner_id: userA,
+        workspace_id: workspaceId,
+        session_id: "lc-old-call",
+        status: "ended",
+      },
+    ],
+    { workspaceId }
+  );
+  assert.deepEqual(keys.sort(), [
+    roomKey(userA, "lc-lee-call"),
+    roomKey(userB, "lc-kamm-call"),
+  ].sort());
 });
 
 test("Recall metadata and transcript are extracted together", () => {
