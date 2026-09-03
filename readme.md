@@ -9,9 +9,11 @@ Recall (webhook)  -->  THIS WORKER  -->  call page  (websocket, live)
 
 Recall sends each finalised utterance to a per-bot `POST /webhook/recall` URL.
 The worker verifies its short-lived private token before parsing the payload,
-then checks the bot, user, workspace and call metadata together. It relays only
-to a browser holding a separate private stream token for that same user and
-call. Every saved utterance carries the verified owner and workspace.
+then checks the bot, capture owner, workspace and call metadata together. A
+single canonical utterance is stored, then relayed only to active private
+subscriber rooms that LiveCoach authorised for that exact calendar occurrence.
+Each teammate still needs their own short-lived user and session-bound browser
+token, so their coaching state and summaries remain separate.
 
 This service does **not** hold the Recall API key — it only receives and
 relays. The key lives in the Vercel app, which dispatches the bot (Stage C).

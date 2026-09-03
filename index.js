@@ -17,6 +17,7 @@ import {
   extractUtterance,
   hashStreamToken,
   roomKey,
+  subscriberRoomKeys,
   utteranceMatchesScope,
   validSessionId,
   validWebhookToken,
@@ -108,7 +109,7 @@ async function validateWebhookToken(rawToken) {
   const tokenHash = hashStreamToken(rawToken);
   const rows = await selectRows("meet_bots", {
     select:
-      "bot_id,session_id,owner_id,workspace_id,webhook_token_expires_at,status",
+      "id,bot_id,session_id,owner_id,workspace_id,webhook_token_expires_at,status",
     webhook_token_hash: `eq.${tokenHash}`,
     webhook_token_expires_at: `gt.${new Date().toISOString()}`,
     status: "eq.active",
@@ -117,6 +118,7 @@ async function validateWebhookToken(rawToken) {
   if (rows.length !== 1) return null;
   const row = rows[0];
   if (
+    !validUuid(row.id) ||
     !row.bot_id ||
     !validSessionId(row.session_id) ||
     !validUuid(row.owner_id) ||
@@ -125,11 +127,31 @@ async function validateWebhookToken(rawToken) {
     return null;
   }
   return {
+    captureId: row.id,
     botId: row.bot_id,
     sessionId: row.session_id,
     ownerId: row.owner_id,
     workspaceId: row.workspace_id,
   };
+}
+
+const subscriberCache = new Map();
+async function activeSubscriberKeys(scope) {
+  const cached = subscriberCache.get(scope.captureId);
+  if (cached && cached.expiresAt > Date.now()) return cached.keys;
+  const subscribers = await selectRows("meet_capture_subscribers", {
+    select: "owner_id,workspace_id,session_id,status",
+    capture_id: `eq.${scope.captureId}`,
+    workspace_id: `eq.${scope.workspaceId}`,
+    status: "eq.active",
+    limit: "20",
+  });
+  const keys = subscriberRoomKeys(subscribers, scope);
+  subscriberCache.set(scope.captureId, {
+    keys,
+    expiresAt: Date.now() + 1500,
+  });
+  return keys;
 }
 
 async function validateStreamToken(sessionId, rawToken) {
@@ -249,18 +271,21 @@ app.post("/webhook/recall", express.raw({ type: "*/*" }), async (req, res) => {
       );
       return;
     }
-    const key = roomKey(webhookScope.ownerId, webhookScope.sessionId);
-    if (!key) return;
     const timestamp = new Date().toISOString();
-    broadcast(key, {
+    const message = {
       type: "utterance",
       speaker: utterance.speaker,
       role: utterance.role,
       text: utterance.text,
       isFinal: true,
       ts: timestamp,
-    });
+    };
+    const subscriberKeys = await activeSubscriberKeys(webhookScope);
+    for (const key of subscriberKeys) broadcast(key, message);
 
+    // Persist the provider utterance once under the capture owner. Subscriber
+    // sessions read this source on demand and keep only their private coaching
+    // state and summary, so a two-person team call never doubles raw storage.
     await persistUtterance({
       session_id: webhookScope.sessionId,
       bot_id: webhookScope.botId,
