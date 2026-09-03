@@ -218,6 +218,7 @@ app.get("/healthz", (_req, res) =>
     ok: ready,
     rooms: rooms.size,
     perBotTokenVerification: true,
+    sharedCaptureFanout: true,
     workspaceSignatureVerification: !!WEBHOOK_SECRET,
     persistence: canPersist,
   })
